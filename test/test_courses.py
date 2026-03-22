@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
 # Enable DEBUG mode so API key checks are bypassed
-os.environ.setdefault("DEBUG", "1")
+os.environ["DEBUG"] = "1"
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 

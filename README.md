@@ -163,10 +163,10 @@ When you exceed rate limits, you'll receive a 429 response.
 ### Building a Custom Router
 
 1. **Create** your router file in `app/routers/my_router.py`
-2. **Follow** the patterns in `routers/template.py` (8 examples provided)
+2. **Follow** the patterns in `routers/template.py` (examples provided)
 3. **Register** in `app/main.py`:
    ```python
-   from .routers import admin, airports, template, my_router
+   from .routers import admin, template, courses, my_router
    
    app.include_router(my_router.router, prefix="/api/my", tags=["My Router"])
    ```
@@ -176,7 +176,7 @@ When you exceed rate limits, you'll receive a 429 response.
 
 All API endpoints require authentication via API key. Include your API key in the request header:
 ```bash
-curl -H "X-API-Key: your-api-key" http://localhost:8000/api/airports/
+curl -H "X-API-Key: your-api-key" http://localhost:8000/courses/semesters
 ```
 
 ## API Endpoints
@@ -227,7 +227,7 @@ Environment variables for configuration (see `.env.example`):
 
 ```bash
 # Courses database (buscacursos data)
-COURSES_DATABASE_URL=sqlite:///./data/courses.db
+COURSES_DATABASE_URL=sqlite:///./data/courses.sqlite
 GITHUB_TOKEN=                          # optional, for release API
 COURSES_UPDATE_INTERVAL_SECONDS=2592000 # 30 days
 
@@ -335,7 +335,7 @@ TIER_CONFIG = {
 - **Quick Start**: Read [DEVELOPER_QUICKSTART.md](DEVELOPER_QUICKSTART.md)
 - **Complete Setup**: See [API_TEMPLATE_GUIDE.md](API_TEMPLATE_GUIDE.md)
 - **API Docs**: Run the server and visit `http://localhost:8000/docs`
-- **Examples**: Check `routers/template.py` and `routers/airports.py`
+- **Examples**: Check `routers/template.py` and `routers/courses.py`
 - **Issues**: Report on GitHub issues tracker
 
 ## License

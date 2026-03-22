@@ -57,9 +57,6 @@ curl -s -I "$BASE_URL/api/admin/" | head -n 1
 echo "   • Template router: $BASE_URL/api/template/"
 curl -s -I "$BASE_URL/api/template/" | head -n 1
 
-echo "   • Airports router: $BASE_URL/api/airports/"
-curl -s -I "$BASE_URL/api/airports/" | head -n 1
-
 echo ""
 echo "6️⃣  Testing authentication..."
 if [ -n "$API_KEY" ]; then

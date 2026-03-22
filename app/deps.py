@@ -11,8 +11,6 @@ from collections import defaultdict
 
 load_dotenv()
 
-DEBUG = os.getenv("DEBUG", "0") == "1"
-
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 # Simple in-memory rate limiting tracker
@@ -64,7 +62,7 @@ def get_api_key(api_key: Optional[str] = Security(api_key_header),
     Validates API key and checks rate limits.
     Returns tuple of (api_key, tier, limit_info)
     """
-    if DEBUG:
+    if os.getenv("DEBUG", "0") == "1":
         return api_key or "debug", "enterprise", {"limit": None, "remaining": None}
 
     if not api_key:
@@ -98,4 +96,3 @@ def get_api_key(api_key: Optional[str] = Security(api_key_header),
     }
     
     return api_key, tier, limit_info
-

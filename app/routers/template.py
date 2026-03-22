@@ -80,9 +80,9 @@ def list_endpoints(
         ],
         "tier": tier,
         "rate_limit": {
-            "limit": limit_info["limit"],
-            "remaining": limit_info["remaining"],
-            "reset_in_seconds": limit_info["reset_in_seconds"],
+            "limit": limit_info.get("limit"),
+            "remaining": limit_info.get("remaining"),
+            "reset_in_seconds": limit_info.get("reset_in_seconds"),
         }
     }
 

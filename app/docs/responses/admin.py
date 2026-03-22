@@ -92,5 +92,27 @@ GET_ADMIN_AUTHENTICATED = {
     }
 }
 
-# "/admin/airac
-GET_AIRAC_CYCLE_INFO = {}
+POST_ADMIN_SQL = {
+    200: {
+        "description": "SQL executed successfully",
+        "content": {
+            "application/json": {
+                "example": {
+                    "rows": [
+                        {"name": "IIC2233-1", "credits": 10},
+                        {"name": "IIC2233-2", "credits": 10}
+                    ],
+                    "count": 2
+                }
+            }
+        },
+    },
+    400: {
+        "description": "Invalid SQL or non-read query",
+        "content": {"application/json": {"example": {"detail": "Only SELECT/PRAGMA statements are allowed"}}},
+    },
+    403: {
+        "description": "Not authorized",
+        "content": {"application/json": {"example": {"detail": "Admin privileges required"}}},
+    },
+}
