@@ -47,7 +47,7 @@ ENV/
 *.DS_Store
 
 # Local data directories (important for security)
-/data/
+# /data/
 /auth_data/
 
 *.zip
