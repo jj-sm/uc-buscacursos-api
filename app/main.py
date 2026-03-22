@@ -8,9 +8,8 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.middleware.cors import CORSMiddleware
-from .routers import (admin, airports, template, courses, admin_courses)
+from .routers import (admin, template, courses)
 from .logging_middleware import RequestLoggerMiddleware
-from .course_updater import periodic_course_updater
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
@@ -21,15 +20,8 @@ URL_PREFIX = os.getenv("URL_PREFIX", "").rstrip("/")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup – launch background courses updater
-    task = asyncio.create_task(periodic_course_updater())
+    # No background updater – database is managed externally
     yield
-    # Shutdown – cancel background task gracefully
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
 
 
 app = FastAPI(
@@ -145,7 +137,5 @@ def root():
 
 # Routers
 app.include_router(admin.router, prefix="/admin", tags=["Admin"], include_in_schema=True)
-app.include_router(admin_courses.router, prefix="/admin/courses", tags=["Admin – Courses"], include_in_schema=True)
 app.include_router(courses.router, prefix="/courses", tags=["Courses"], include_in_schema=True)
 app.include_router(template.router, prefix="/template", tags=["Template Example"], include_in_schema=True)
-app.include_router(airports.router, prefix="/airports", tags=["Airports Example"], include_in_schema=True)

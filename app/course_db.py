@@ -16,19 +16,35 @@ from typing import Generator
 
 COURSES_DATABASE_URL = os.getenv(
     "COURSES_DATABASE_URL",
-    "sqlite:///./data/courses.db",
+    "sqlite:///./data/courses.sqlite",
 )
 
 # Parse the file path from a sqlite:///... URL
 _raw_path = COURSES_DATABASE_URL.removeprefix("sqlite:///")
 COURSES_DB_PATH = Path(_raw_path)
+SEED_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "courses.sqlite"
 
 # Semester name must be: semester_YYYY_N (digits only, safety whitelist)
 _SEMESTER_RE = re.compile(r"^semester_\d{4}_\d+$")
 
 
-def _connect() -> sqlite3.Connection:
+def _bootstrap_db_if_needed() -> None:
+    """
+    Ensure a writable courses database exists at COURSES_DB_PATH.
+
+    If the target file is missing but a bundled seed exists, copy the seed to
+    the data directory so containers with a mounted volume start with data.
+    """
     COURSES_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not COURSES_DB_PATH.exists() and SEED_DB_PATH.exists():
+        try:
+            COURSES_DB_PATH.write_bytes(SEED_DB_PATH.read_bytes())
+        except OSError as exc:
+            raise RuntimeError(f"Failed to seed courses DB at {COURSES_DB_PATH}: {exc}") from exc
+
+
+def _connect() -> sqlite3.Connection:
+    _bootstrap_db_if_needed()
     conn = sqlite3.connect(str(COURSES_DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn

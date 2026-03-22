@@ -13,7 +13,7 @@ ENTERPRISE: Unlimited   (custom SLA)          ← Critical systems
 ### Using API Key
 ```bash
 # Header-based authentication
-curl -H "X-API-Key: your-key" http://localhost:8000/airports/info/airport/KJFK
+curl -H "X-API-Key: your-key" "http://localhost:8000/courses/semesters"
 ```
 
 ### Rate Limit Response
@@ -62,19 +62,19 @@ if tier in ["pro", "premium"]:
 
 ### With Database
 ```python
-@router.get("/airports/{icao}")
-def get_airport(
-    icao: str,
-    db: Session = Depends(get_db),
+@router.get("/courses/{semester}/nrc/{nrc}")
+def get_course(
+    semester: str,
+    nrc: str,
+    db: Session = Depends(get_course_db),
     api_key_tuple: tuple = Depends(get_api_key)
 ):
     api_key, tier, limit_info = api_key_tuple
-    airport = db.query(Airport).filter_by(code=icao).first()
-    
-    if not airport:
+    # Example course lookup using raw sqlite3 in courses_db
+    row = db.execute(f"SELECT * FROM [{semester}] WHERE nrc = ?", (nrc,)).fetchone()
+    if not row:
         raise HTTPException(404, "Not found")
-    
-    return airport
+    return dict(row)
 ```
 
 ---

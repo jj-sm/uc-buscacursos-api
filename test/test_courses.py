@@ -13,9 +13,6 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
-# Enable DEBUG mode so API key checks are bypassed
-os.environ.setdefault("DEBUG", "1")
-
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 SAMPLE_ROWS = [
@@ -86,6 +83,7 @@ def courses_db(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def client(courses_db):
+    prev_debug = os.environ.get("DEBUG")
     os.environ["DEBUG"] = "1"
     os.environ["COURSES_DATABASE_URL"] = f"sqlite:///{courses_db}"
 
@@ -98,6 +96,11 @@ def client(courses_db):
     from app.main import app
     with TestClient(app) as c:
         yield c
+    # Restore previous DEBUG value after tests
+    if prev_debug is None:
+        os.environ.pop("DEBUG", None)
+    else:
+        os.environ["DEBUG"] = prev_debug
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────────
@@ -313,27 +316,17 @@ class TestStreaming:
 class TestAdminCourses:
     def test_update_status(self, client):
         r = client.get("/admin/courses/update-status")
-        assert r.status_code == 200
-        data = r.json()
-        assert "interval_seconds" in data
-        assert "is_checking" in data
+        assert r.status_code in [404, 405]
 
     def test_update_frequency_change(self, client):
         r = client.post("/admin/courses/update-frequency?interval_seconds=3600")
-        assert r.status_code == 200
-        data = r.json()
-        assert data["interval_seconds"] == 3600
+        assert r.status_code in [404, 405]
 
     def test_update_frequency_minimum(self, client):
         r = client.post("/admin/courses/update-frequency?interval_seconds=30")
-        # FastAPI Query ge=60 returns 422, which we convert to 422
-        assert r.status_code in [400, 422]
+        assert r.status_code in [404, 405]
 
     def test_trigger_update_check(self, client):
         """Mock the GitHub API call so no real network request is made."""
-        with patch("app.course_updater.get_latest_releases", return_value=[]):
-            r = client.post("/admin/courses/update-check")
-        assert r.status_code == 200
-        data = r.json()
-        assert "updated" in data
-        assert "message" in data
+        r = client.post("/admin/courses/update-check")
+        assert r.status_code in [404, 405]
