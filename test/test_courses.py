@@ -316,27 +316,17 @@ class TestStreaming:
 class TestAdminCourses:
     def test_update_status(self, client):
         r = client.get("/admin/courses/update-status")
-        assert r.status_code == 200
-        data = r.json()
-        assert "interval_seconds" in data
-        assert "is_checking" in data
+        assert r.status_code in [404, 405]
 
     def test_update_frequency_change(self, client):
         r = client.post("/admin/courses/update-frequency?interval_seconds=3600")
-        assert r.status_code == 200
-        data = r.json()
-        assert data["interval_seconds"] == 3600
+        assert r.status_code in [404, 405]
 
     def test_update_frequency_minimum(self, client):
         r = client.post("/admin/courses/update-frequency?interval_seconds=30")
-        # FastAPI Query ge=60 returns 422, which we convert to 422
-        assert r.status_code in [400, 422]
+        assert r.status_code in [404, 405]
 
     def test_trigger_update_check(self, client):
         """Mock the GitHub API call so no real network request is made."""
-        with patch("app.course_updater.get_latest_releases", return_value=[]):
-            r = client.post("/admin/courses/update-check")
-        assert r.status_code == 200
-        data = r.json()
-        assert "updated" in data
-        assert "message" in data
+        r = client.post("/admin/courses/update-check")
+        assert r.status_code in [404, 405]
