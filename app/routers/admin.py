@@ -1,7 +1,7 @@
 import os
 import secrets
 import sqlite3
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -37,7 +37,7 @@ def _ensure_admin(api_key_tuple: tuple) -> None:
 
 @router.post(
     "/keys",
-    responses=r_admin.POST_ADMIN_KEYS,
+    responses=r_admin.POST_ADMIN_KEYS, # pyright: ignore[reportArgumentType]
     summary="Create API key (for admin use only)",
     include_in_schema=HIDE_ADMIN_ENDPOINTS,
 )
@@ -57,7 +57,7 @@ def create_api_key(
 
 @router.get(
     "/keys/list",
-    responses=r_admin.GET_ADMIN_KEYS_LIST,
+    responses=r_admin.GET_ADMIN_KEYS_LIST,  # type: ignore
     summary="List API keys (for admin use only)",
     include_in_schema=HIDE_ADMIN_ENDPOINTS,
 )
@@ -71,7 +71,7 @@ def list_api_keys(
 
 @router.patch(
     "/keys/{key_name}",
-    responses=r_admin.PATCH_ADMIN_KEYS_KEYNAME,
+    responses=r_admin.PATCH_ADMIN_KEYS_KEYNAME, # pyright: ignore[reportArgumentType]
     summary="Deactivate API key (for admin use only)",
     include_in_schema=HIDE_ADMIN_ENDPOINTS
 )
@@ -88,18 +88,20 @@ def deactivate_api_key(
             key_obj = db.query(APIKey).filter(APIKey.name == key_name).first()
 
         if key_obj:
-            key_obj.active = False
+            setattr(key_obj, "active", False)
             db.commit()
             return {"status": "deactivated"}
 
-        return HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found")
+    except HTTPException:
+        raise
     except Exception as e:
-        return HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get(
     "/authenticated",
-    responses=r_admin.GET_ADMIN_AUTHENTICATED,
+    responses=r_admin.GET_ADMIN_AUTHENTICATED, # pyright: ignore[reportArgumentType]
     summary="Check for user authentication"
 )
 def authenticated(api_key_tuple: tuple = Depends(get_api_key)):
@@ -119,7 +121,7 @@ class SQLRequest(BaseModel):
         "Only SELECT/PRAGMA statements are allowed. "
         "Admin API key required."
     ),
-    responses=r_admin.POST_ADMIN_SQL,
+    responses=r_admin.POST_ADMIN_SQL,  # pyright: ignore[reportArgumentType]
 )
 def run_admin_sql(
     payload: SQLRequest,
