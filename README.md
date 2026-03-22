@@ -1,23 +1,21 @@
-# Universal API Template
+# UC BuscaCursos API
 
-A modern, scalable RESTful API template built with FastAPI. This template provides a production-ready foundation for building APIs with tier-based authentication, rate limiting, and comprehensive documentation.
+A FastAPI-based REST API for querying UC (Pontificia Universidad Católica de Chile) BuscaCursos course data. Courses are stored in a SQLite database with one table per semester and are automatically updated from the [`jj-sm/buscacursos-dl-jj-sm`](https://github.com/jj-sm/buscacursos-dl-jj-sm) releases.
 
 ## Features
 
+- **BuscaCursos Endpoints**: Search, list, retrieve, stream, and aggregate course data across semesters
 - **Tier-Based Authentication**: 4 API tiers with different rate limits (Free/Pro/Premium/Enterprise)
 - **Rate Limiting**: Sliding-window rate limiter with per-tier configuration
   - Free: 10 requests/second
-  - Pro: 100 requests/second
-  - Premium: 1,000 requests/second
+  - Pro: 100 requests/second + NDJSON streaming
+  - Premium: 1,000 requests/second + semester statistics
   - Enterprise: Unlimited
-- **Admin Management**: API key lifecycle management and statistics
-- **API Key Authentication**: Secure API key-based authentication
-- **Database Integration**: SQLite/PostgreSQL support with SQLAlchemy ORM
-- **RESTful Design**: Clean, well-documented REST API endpoints
-- **Interactive Documentation**: Auto-generated Swagger UI and ReDoc
-- **Docker Support**: Containerized deployment with Docker and docker-compose
-- **Example Routers**: Template and airports routers with 8+ endpoint patterns
-- **Comprehensive Documentation**: Getting started guides, quick reference, and migration guides
+- **Streaming Responses**: Stream full semester datasets as NDJSON (Pro+)
+- **Auto-Update**: Background task checks GitHub for new semester releases monthly (configurable)
+- **Admin Management**: API key lifecycle, update-frequency control, manual update triggers
+- **API Key Authentication**: Secure API key-based authentication via `X-API-Key` header
+- **Interactive Documentation**: Auto-generated Swagger UI (`/docs`) and ReDoc (`/redoc`)
 
 ## Quick Start
 
@@ -68,60 +66,99 @@ The API will be available at `http://localhost:8000`
 
 ## Documentation
 
-### Getting Started
+### Courses API Reference
 
-- **[DEVELOPER_QUICKSTART.md](DEVELOPER_QUICKSTART.md)** - 5-minute start guide (recommended first read)
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick lookup for common tasks
-- **[API_TEMPLATE_GUIDE.md](API_TEMPLATE_GUIDE.md)** - Complete setup and usage guide
-- **[ROUTER_MIGRATION_GUIDE.md](ROUTER_MIGRATION_GUIDE.md)** - Guide for creating and registering new routers
+- **[docs/COURSES_API.md](docs/COURSES_API.md)** – Full endpoint reference for BuscaCursos
+
+### Interactive API Docs
+
+Run the server and visit:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
 ### Project Structure
 
 - **Core System**:
-  - `app/main.py` - FastAPI application setup
+  - `app/main.py` - FastAPI application setup and lifespan (starts background updater)
   - `app/auth_models.py` - Tier-based API key models
   - `app/deps.py` - Authentication and rate limiting
-  - `app/db.py` & `app/auth_db.py` - Database connections
+  - `app/course_db.py` - Raw sqlite3 connection for dynamic semester tables
+  - `app/course_updater.py` - Periodic GitHub release checker / DB merger
 
 - **routers/**:
-  - `admin.py` - API key management and statistics
-  - `template.py` - 8 endpoint pattern examples (start here!)
-  - `airports.py` - Real-world example integration
-
-- **helpers/**:
-  - `data_io.py` - Data transformation utilities
+  - `courses.py` - All BuscaCursos endpoints (search, list, stream, stats, metadata)
+  - `admin_courses.py` - Update frequency, status, and manual trigger endpoints
+  - `admin.py` - API key management
 
 ## Usage
 
-### Creating an API Key
+### Quick Start with BuscaCursos
 
-Access the admin panel at `http://localhost:8000/api/admin/` to create API keys with different tiers.
+1. Set up environment:
+   ```bash
+   cp .env.example .env
+   # Set COURSES_DATABASE_URL, GITHUB_TOKEN (optional)
+   ```
+
+2. Run the server:
+   ```bash
+   ./scripts/run.sh
+   ```
+
+3. On first start the background task will check GitHub for the latest semester and download it automatically.
 
 ### Making API Requests
 
 ```bash
-# Basic request with API key
+# List available semesters
 curl -H "X-API-Key: your-api-key" \
-     http://localhost:8000/api/template/resources
+     http://localhost:8000/courses/semesters
 
-# Response includes rate limit info
-# X-RateLimit-Limit: 10
-# X-RateLimit-Remaining: 9
-# X-RateLimit-Reset: 59
+# Search courses
+curl -H "X-API-Key: your-api-key" \
+     "http://localhost:8000/courses/semester_2026_1/search?q=programacion&page_size=5"
+
+# Get course by NRC
+curl -H "X-API-Key: your-api-key" \
+     http://localhost:8000/courses/semester_2026_1/nrc/12345
+
+# Stream entire semester (Pro+)
+curl -H "X-API-Key: your-pro-api-key" \
+     http://localhost:8000/courses/semester_2026_1/stream
+
+# Semester statistics (Premium+)
+curl -H "X-API-Key: your-premium-api-key" \
+     http://localhost:8000/courses/semester_2026_1/stats
+```
+
+### Admin: Update Management
+
+```bash
+# Check update status
+curl -H "X-API-Key: admin-key" \
+     http://localhost:8000/admin/courses/update-status
+
+# Trigger immediate update check
+curl -X POST -H "X-API-Key: admin-key" \
+     http://localhost:8000/admin/courses/update-check
+
+# Change update interval to 7 days
+curl -X POST -H "X-API-Key: admin-key" \
+     "http://localhost:8000/admin/courses/update-frequency?interval_seconds=604800"
 ```
 
 ### Understanding Rate Limits
 
 Rate limits are enforced per API key and tier:
 
-| Tier | Requests/Second | Max Burst | Cost |
-|------|-----------------|-----------|------|
-| Free | 10 | 20 | Free |
-| Pro | 100 | 200 | $9/mo |
-| Premium | 1,000 | 2,000 | $99/mo |
-| Enterprise | Unlimited | N/A | Custom |
+| Tier | Requests/Second | Features |
+|------|-----------------|----------|
+| Free | 10 | Search, list, retrieve |
+| Pro | 100 | + NDJSON streaming |
+| Premium | 1,000 | + Semester statistics |
+| Enterprise | Unlimited | All features |
 
-When you exceed rate limits, you'll receive a 429 response with `Retry-After` header.
+When you exceed rate limits, you'll receive a 429 response.
 
 ### Building a Custom Router
 
@@ -144,66 +181,68 @@ curl -H "X-API-Key: your-api-key" http://localhost:8000/api/airports/
 
 ## API Endpoints
 
-### Admin Panel
+### Courses (BuscaCursos)
 
-Access the admin panel to manage API keys:
+See **[docs/COURSES_API.md](docs/COURSES_API.md)** for the full endpoint reference.
 
-```bash
-# View admin dashboard
-http://localhost:8000/api/admin/
-```
+| Endpoint | Tier | Description |
+|----------|------|-------------|
+| `GET /courses/semesters` | Free | List available semesters |
+| `GET /courses/{sem}/search` | Free | Search with filters + pagination |
+| `GET /courses/{sem}/list` | Free | Paginated full list |
+| `GET /courses/{sem}/course/{id}` | Free | Single course by composite ID |
+| `GET /courses/{sem}/nrc/{nrc}` | Free | Single course by NRC |
+| `GET /courses/{sem}/initials/{ini}` | Free | All sections by course initials |
+| `GET /courses/{sem}/schools` | Free | Distinct schools |
+| `GET /courses/{sem}/areas` | Free | Distinct areas |
+| `GET /courses/{sem}/categories` | Free | Distinct categories |
+| `GET /courses/{sem}/campuses` | Free | Distinct campuses |
+| `GET /courses/{sem}/formats` | Free | Distinct formats |
+| `GET /courses/{sem}/programs` | Free | Distinct programs |
+| `GET /courses/{sem}/teachers` | Free | Distinct teachers |
+| `GET /courses/{sem}/stream` | Pro+ | NDJSON streaming of all courses |
+| `GET /courses/{sem}/stats` | Premium+ | Aggregated semester statistics |
 
-### Template Router
+### Admin – Courses Update
 
-8 example endpoint patterns for reference:
+| Endpoint | Description |
+|----------|-------------|
+| `GET /admin/courses/update-status` | Current updater state |
+| `POST /admin/courses/update-check` | Trigger immediate GitHub check |
+| `POST /admin/courses/update-frequency` | Change check interval |
 
-```bash
-# List resources
-curl -H "X-API-Key: your-api-key" http://localhost:8000/api/template/resources
+### Admin – API Keys
 
-# Get specific resource
-curl -H "X-API-Key: your-api-key" http://localhost:8000/api/template/resources/123
-
-# Search resources
-curl -H "X-API-Key: your-api-key" "http://localhost:8000/api/template/resources/search?q=test"
-
-# Create resource (requires Pro tier or higher)
-curl -X POST -H "X-API-Key: your-api-key" \
-     -H "Content-Type: application/json" \
-     -d '{"name":"New Resource"}' \
-     http://localhost:8000/api/template/resources
-```
-
-### Airports Router
-
-Real-world example of database integration:
-
-```bash
-# List all airports
-curl -H "X-API-Key: your-api-key" http://localhost:8000/api/airports/
-
-# Get airport by code
-curl -H "X-API-Key: your-api-key" http://localhost:8000/api/airports/SKBO
-```
+| Endpoint | Description |
+|----------|-------------|
+| `GET /admin/` | List admin endpoints |
+| `POST /admin/keys` | Create API key |
+| `GET /admin/keys/list` | List all API keys |
+| `PATCH /admin/keys/{name}` | Deactivate API key |
+| `GET /admin/authenticated` | Check authentication |
 
 ## Configuration
 
 Environment variables for configuration (see `.env.example`):
 
 ```bash
-# Database
-DATABASE_URL=sqlite:///./data/app.db
-AUTH_DATABASE_URL=sqlite:///./data/auth.db
+# Courses database (buscacursos data)
+COURSES_DATABASE_URL=sqlite:///./data/courses.db
+GITHUB_TOKEN=                          # optional, for release API
+COURSES_UPDATE_INTERVAL_SECONDS=2592000 # 30 days
+
+# Auth database
+AUTH_DATABASE_URL=sqlite:///./auth_data/api_keys.db
 
 # Server
 API_URL=0.0.0.0
 API_PORT=8000
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+CORS_ORIGINS=*
 
-# Logging
-LOG_LEVEL=INFO
+# Debug (set 1 to skip auth)
+DEBUG=0
 ```
 
 ## Project Structure
@@ -211,37 +250,25 @@ LOG_LEVEL=INFO
 ```
 uc-buscacursos-api/
 ├── app/
-│   ├── main.py                 # FastAPI application setup
+│   ├── main.py                 # FastAPI app setup + background updater
 │   ├── auth_models.py          # Tier-based API key models
 │   ├── auth_db.py              # Auth database connection
-│   ├── db.py                   # Main database connection
+│   ├── course_db.py            # Raw sqlite3 for semester tables
+│   ├── course_updater.py       # GitHub release checker / DB merger
 │   ├── deps.py                 # Authentication & rate limiting
-│   ├── generic_models.py       # Template data models
-│   ├── models.py               # SQLAlchemy ORM models
-│   ├── logging_middleware.py   # Request logging
-│   ├── admin_key_manager.py    # API key lifecycle management
-│   ├── rate_limiter.py         # Tier configuration & utilities
-│   ├── helpers/
-│   │   ├── __init__.py
-│   │   └── data_io.py          # Data transformation utilities
+│   ├── docs/responses/
+│   │   └── courses.py          # OpenAPI response examples
 │   └── routers/
-│       ├── __init__.py
-│       ├── admin.py            # API key management endpoints
-│       ├── template.py         # 8 endpoint pattern examples
-│       └── airports.py         # Real-world database example
-├── data/                       # Data directory
-├── docs/                       # Documentation
-├── logs/                       # Application logs
-├── test/                       # Test files
-├── .env.example                # Environment template
-├── requirements.txt            # Python dependencies
-├── Dockerfile                  # Container configuration
-├── docker-compose.yaml         # Multi-container setup
-├── run.py                      # Application runner
-├── DEVELOPER_QUICKSTART.md     # 5-minute start guide
-├── QUICK_REFERENCE.md          # Quick lookup
-├── API_TEMPLATE_GUIDE.md       # Complete guide
-└── README.md                   # This file
+│       ├── courses.py          # All BuscaCursos endpoints
+│       ├── admin_courses.py    # Update management endpoints
+│       └── admin.py            # API key management endpoints
+├── data/                       # SQLite databases (gitignored)
+├── docs/
+│   └── COURSES_API.md          # Full endpoint reference
+├── test/
+│   ├── test_courses.py         # Courses endpoint tests
+│   └── test_api_endpoints.py   # General API tests
+└── .env.example                # Environment template
 ```
 
 ## Development
