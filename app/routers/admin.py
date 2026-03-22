@@ -1,6 +1,11 @@
 import secrets
 import os
-import airac_tools.cycle as airac_c
+try:
+    import airac_tools.cycle as airac_c
+    _AIRAC_AVAILABLE = True
+except ImportError:
+    airac_c = None
+    _AIRAC_AVAILABLE = False
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, inspect
@@ -68,6 +73,8 @@ add_welcome_endpoint(router,
     responses=r_admin.GET_AIRAC_CYCLE_INFO,
 )
 def get_airac_cycle(db: Session = Depends(get_db)):
+    if not _AIRAC_AVAILABLE:
+        raise HTTPException(status_code=501, detail="AIRAC tools not available")
     cycle = airac_c.get_current_cycle()
     db_cycle = db.query(AiracInfo).one()
     db_c_cycle = db_cycle.current_airac if db_cycle else None

@@ -8,8 +8,9 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.middleware.cors import CORSMiddleware
-from .routers import (admin, airports, template)
+from .routers import (admin, airports, template, courses, admin_courses)
 from .logging_middleware import RequestLoggerMiddleware
+from .course_updater import periodic_course_updater
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
@@ -20,15 +21,25 @@ URL_PREFIX = os.getenv("URL_PREFIX", "").rstrip("/")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup – launch background courses updater
+    task = asyncio.create_task(periodic_course_updater())
     yield
-    # Shutdown
+    # Shutdown – cancel background task gracefully
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
-    title="Universal API",
-    version="1.0.0",
-    description="A modern, scalable API template with tier-based authentication and rate limiting",
+    title="UC BuscaCursos API",
+    version="2.0.0",
+    description=(
+        "API for querying UC BuscaCursos course data from multiple semesters. "
+        "Features tier-based authentication, rate limiting, streaming responses, "
+        "and automatic semester database updates from jj-sm/buscacursos-dl-jj-sm."
+    ),
     lifespan=lifespan
 )
 app.root_path = URL_PREFIX
@@ -63,9 +74,13 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
-        description="Universal API Documentation with tier-based rate limiting. "
-                    "Authenticate using X-API-Key header. Available tiers: Free (10 req/s), "
-                    "Pro (100 req/s), Premium (1000 req/s), Enterprise (unlimited).",
+        description=(
+            "UC BuscaCursos API – query course data across semesters. "
+            "Authenticate using the `X-API-Key` header.  "
+            "Available tiers: Free (10 req/s), Pro (100 req/s), "
+            "Premium (1 000 req/s, stats access), "
+            "Enterprise (unlimited, all features)."
+        ),
         routes=app.routes,
     )
 
@@ -102,7 +117,6 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-# Health check endpoint
 @app.get("/health", tags=["System"], include_in_schema=True)
 def health_check():
     """System health check endpoint"""
@@ -114,21 +128,24 @@ def health_check():
 def root():
     """API information and available endpoints"""
     return {
-        "name": "Universal API",
-        "version": "1.0.0",
-        "description": "A modern, scalable API template with tier-based authentication",
+        "title": "UC BuscaCursos API",
+        "name": "UC BuscaCursos API",
+        "version": "2.0.0",
+        "description": "API for UC BuscaCursos course data with tier-based authentication",
         "docs": "/docs",
         "authentication": "X-API-Key header required",
         "tiers": {
-            "free": "10 req/s",
-            "pro": "100 req/s",
-            "premium": "1000 req/s",
+            "free": "10 req/s – search, list, retrieve",
+            "pro": "100 req/s – + streaming (NDJSON)",
+            "premium": "1000 req/s – + semester statistics",
             "enterprise": "unlimited"
         }
     }
 
 
-# Routers - Example implementations
+# Routers
 app.include_router(admin.router, prefix="/admin", tags=["Admin"], include_in_schema=True)
+app.include_router(admin_courses.router, prefix="/admin/courses", tags=["Admin – Courses"], include_in_schema=True)
+app.include_router(courses.router, prefix="/courses", tags=["Courses"], include_in_schema=True)
 app.include_router(template.router, prefix="/template", tags=["Template Example"], include_in_schema=True)
 app.include_router(airports.router, prefix="/airports", tags=["Airports Example"], include_in_schema=True)
