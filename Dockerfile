@@ -20,12 +20,8 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
-# Copy the full source code (needed to build C++ extension)
+# Copy the full source code
 COPY . .
-
-# Build and install the C++ extension into the virtualenv
-RUN /opt/venv/bin/pip install --upgrade scikit-build pybind11 && \
-    /opt/venv/bin/pip install .
 
 # ---- Final Stage ----
 FROM python:3.11-slim
