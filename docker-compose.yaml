@@ -1,0 +1,14 @@
+services:
+  api:
+    image: ghcr.io/jj-sm/universal-api:latest
+    container_name: universal-api
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/home/appuser/app/data:rw
+      - ./auth_data:/home/appuser/app/auth_data:rw
+      - ./logs:/home/appuser/app/logs:rw
+    env_file:
+      - .env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000

@@ -1,0 +1,43 @@
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+
+# Databases (should be mounted as volumes, not copied)
+*.db
+*.s3db
+*.sqlite3
+*.db-journal
+*.s3db-journal
+data/
+auth_data/
+temp/
+
+# Environment
+.env
+
+# IDE / OS specific / Tests
+.idea/
+.vscode/
+*.DS_Store
+tests/
+output/
+dist/
+docs/
+*.md
+logs/
+maps/
+.github

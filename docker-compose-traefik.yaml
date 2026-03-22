@@ -1,0 +1,33 @@
+networks:
+  frontend:
+    external: true
+  backend:
+    external: true
+
+services:
+  api:
+    image: ghcr.io/jj-sm/universal-api:latest
+    container_name: universal-api
+    restart: always
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - ./data:/home/appuser/app/data:rw
+      - ./auth_data:/home/appuser/app/auth_data:rw
+      - ./logs:/home/appuser/app/logs:rw
+    env_file:
+      - .env
+    labels:
+      - "traefik.enable=true"
+      # HTTP -> redirect to HTTPS via middleware
+      - "traefik.http.routers.universal-http.rule=Host(`example.com`)"
+      - "traefik.http.routers.universal-http.entrypoints=web"
+      - "traefik.http.routers.universal-http.middlewares=redirect-to-https@docker"
+      # HTTPS
+      - "traefik.http.routers.universal-https.rule=Host(`example.com`)"
+      - "traefik.http.routers.universal-https.entrypoints=websecure"
+      - "traefik.http.routers.universal-https.tls=true"
+      - "traefik.http.routers.universal-https.tls.certresolver=cloudflare"
+      # The internal port Traefik will use to reach the container
+      - "traefik.http.services.universal.loadbalancer.server.port=8000"
