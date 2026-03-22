@@ -20,7 +20,7 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
-# Copy the full source code
+# Copy the full source code for direct runtime use
 COPY . .
 
 # ---- Final Stage ----
