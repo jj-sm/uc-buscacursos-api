@@ -1,5 +1,8 @@
 # UC BuscaCursos API
 
+<img width="1487" height="963" alt="image" src="https://github.com/user-attachments/assets/3ab24174-9720-422c-be25-a60e0b3076b6" />
+
+
 A FastAPI-based REST API for querying UC (Pontificia Universidad Católica de Chile) BuscaCursos course data. Courses are stored in a SQLite database with one table per semester and are automatically updated from the [`jj-sm/buscacursos-dl-jj-sm`](https://github.com/jj-sm/buscacursos-dl-jj-sm) releases.
 
 ## Test it
@@ -8,6 +11,9 @@ A FastAPI-based REST API for querying UC (Pontificia Universidad Católica de Ch
 - **Swagger UI**: visit the API Documentation here: [uc.api.jjsm.science/docs#](https://uc.api.jjsm.science/docs#)
 
 > For testing, use this free tier key: `X-API-Key: i2bUXB2DBnP01tXA3vQCYjYNNHhAHIkjX25Bj63zkVc`, if you need to make more requests per second, contact me at [api@jjsm.science](mailto:api@jjsm.science). It won't have any cost, just need to control who access massively the API.
+
+<img width="1432" height="598" alt="image" src="https://github.com/user-attachments/assets/c1bebe44-0740-475f-813b-a78afc254611" />
+
 
 ## Features
 
