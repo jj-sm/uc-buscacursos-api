@@ -1,7 +1,7 @@
 import os
 import secrets
 import sqlite3
-from typing import Any
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -102,7 +102,8 @@ def deactivate_api_key(
     summary="Check for user authentication"
 )
 def authenticated(api_key_tuple: tuple = Depends(get_api_key)):
-    if api_key_tuple:
+    api_key, _, _ = api_key_tuple
+    if api_key:
         return {"status": "authenticated"}
     raise HTTPException(status_code=401, detail="Invalid API Key")
 
@@ -119,7 +120,7 @@ def authenticated(api_key_tuple: tuple = Depends(get_api_key)):
 )
 def run_admin_sql(
     sql: str,
-    params: list[Any] | None = None,
+    params: Optional[List[Any]] = None,
     api_key_tuple: tuple = Depends(get_api_key),
     conn: sqlite3.Connection = Depends(get_course_db),
 ):
