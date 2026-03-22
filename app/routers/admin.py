@@ -45,14 +45,15 @@ def create_api_key(
     name: str,
     db: Session = Depends(get_auth_db),
     api_key_tuple: tuple = Depends(get_api_key),
+    tier: str = "free",
 ):
     _ensure_admin(api_key_tuple)
     new_key = secrets.token_urlsafe(32)
-    key_obj = APIKey(key=new_key, name=name)
+    key_obj = APIKey(key=new_key, name=name, tier=tier)
     db.add(key_obj)
     db.commit()
     db.refresh(key_obj)
-    return {"key": key_obj.key, "name": key_obj.name}
+    return {"key": key_obj.key, "name": key_obj.name, "tier": key_obj.tier}
 
 
 @router.get(
@@ -66,7 +67,7 @@ def list_api_keys(
 ):
     _ensure_admin(api_key_tuple)
     keys = db.query(APIKey).all()
-    return [{"id": k.id, "key": k.key, "name": k.name, "active": k.active} for k in keys]
+    return [{"id": k.id, "key": k.key, "name": k.name, "active": k.active, "tier": k.tier} for k in keys]
 
 
 @router.patch(

@@ -138,4 +138,4 @@ def root():
 # Routers
 app.include_router(admin.router, prefix="/admin", tags=["Admin"], include_in_schema=True)
 app.include_router(courses.router, prefix="/courses", tags=["Courses"], include_in_schema=True)
-app.include_router(template.router, prefix="/template", tags=["Template Example"], include_in_schema=True)
+# app.include_router(template.router, prefix="/template", tags=["Template Example"], include_in_schema=True)
