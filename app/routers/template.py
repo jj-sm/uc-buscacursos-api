@@ -77,6 +77,7 @@ def list_endpoints(
             "/",
             "/:id",
             "/search",
+            "/error-examples",
         ],
         "tier": tier,
         "rate_limit": {

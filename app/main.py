@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.middleware.cors import CORSMiddleware
 from .routers import (admin, template, courses)
 from .logging_middleware import RequestLoggerMiddleware
+from .observability import setup_observability
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
@@ -36,6 +37,7 @@ app = FastAPI(
 )
 app.root_path = URL_PREFIX
 app.add_middleware(RequestLoggerMiddleware)
+setup_observability(app)
 
 # Add CORS middleware
 app.add_middleware(
@@ -138,4 +140,4 @@ def root():
 # Routers
 app.include_router(admin.router, prefix="/admin", tags=["Admin"], include_in_schema=True)
 app.include_router(courses.router, prefix="/courses", tags=["Courses"], include_in_schema=True)
-# app.include_router(template.router, prefix="/template", tags=["Template Example"], include_in_schema=True)
+app.include_router(template.router, prefix="/template", tags=["Template"], include_in_schema=True)

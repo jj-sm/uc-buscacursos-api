@@ -129,6 +129,13 @@ def run_admin_sql(
     api_key_tuple: tuple = Depends(get_api_key),
     conn: sqlite3.Connection = Depends(get_course_db),
 ):
+    # Require an explicit API key even in DEBUG mode to prevent accidental exposure
+    if api_key_tuple and api_key_tuple[0] == "debug":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin SQL endpoint requires an explicit API key; DEBUG shortcuts are disabled",
+        )
+
     _ensure_admin(api_key_tuple)
 
     if not payload.sql.strip().lower().startswith(("select", "pragma")):

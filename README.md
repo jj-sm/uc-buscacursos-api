@@ -27,6 +27,7 @@ A FastAPI-based REST API for querying UC (Pontificia Universidad Católica de Ch
 - **Streaming Responses**: Stream full semester datasets as NDJSON (Pro+)
 - **Auto-Update**: Background task checks GitHub for new semester releases monthly (configurable)
 - **Admin Management**: API key lifecycle, update-frequency control, manual update triggers
+- **Optional Observability**: Toggle Grafana stack (Tempo traces, Prometheus metrics, Loki log correlation) via env flag
 - **API Key Authentication**: Secure API key-based authentication via `X-API-Key` header
 - **Interactive Documentation**: Auto-generated Swagger UI (`/docs`) and ReDoc (`/redoc`)
 
@@ -254,9 +255,73 @@ API_PORT=8000
 # CORS
 CORS_ORIGINS=*
 
+# Observability (optional)
+ENABLE_OBSERVABILITY=0
+OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+OTEL_SERVICE_NAME=uc-buscacursos-api
+
 # Debug (set 1 to skip auth)
 DEBUG=0
 ```
+
+# Observability (optional)
+- Set `ENABLE_OBSERVABILITY=1` to turn on traces/metrics/log correlation.
+- Point `OTEL_EXPORTER_OTLP_ENDPOINT` to your Tempo/OTel Collector (default `http://localhost:4317`).
+- Prometheus can scrape `/metrics` (OpenMetrics format with exemplars); Loki can ingest stdout logs that now include OTEL trace/span fields via `LoggingInstrumentor`.
+- Service name defaults to `uc-buscacursos-api` (configure with `OTEL_SERVICE_NAME`).
+
+### Deploying everything on one server with Portainer
+
+1. Install the Loki Docker logging plugin on the host:
+   ```bash
+   docker plugin install grafana/loki-docker-driver:3.3.2-amd64 --alias loki --grant-all-permissions
+   docker plugin enable loki
+   ```
+2. In Portainer, create a stack with Grafana, Prometheus, Tempo, and Loki (use the official images). Use a shared network so they can reach each other:
+   ```yaml
+   services:
+     tempo:
+       image: grafana/tempo:latest
+       command: ["-config.file=/etc/tempo.yaml"]
+       volumes:
+         - ./etc/tempo.yaml:/etc/tempo.yaml
+     prometheus:
+       image: prom/prometheus:latest
+       volumes:
+         - ./etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+     loki:
+       image: grafana/loki:latest
+       command: ["-config.file=/etc/loki/local-config.yaml"]
+       volumes:
+         - ./etc/loki/local-config.yaml:/etc/loki/local-config.yaml
+     grafana:
+       image: grafana/grafana:latest
+       ports: ["3000:3000"]
+       volumes:
+         - ./etc/grafana/:/etc/grafana/provisioning/datasources
+         - ./etc/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+         - ./etc/dashboards:/etc/grafana/dashboards
+   ```
+3. Run the API container on the same host network, mounting data and pointing to the observability stack:
+   ```yaml
+   services:
+     api:
+       image: ghcr.io/jj-sm/universal-api:latest
+       env_file: .env
+       environment:
+         ENABLE_OBSERVABILITY: "1"
+         OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+         OTEL_SERVICE_NAME: "uc-buscacursos-api"
+       logging:
+         driver: loki
+         options:
+           loki-url: "http://loki:3100/api/prom/push"
+   ```
+4. In Grafana, add data sources:
+   - Prometheus: `http://prometheus:9090` with exemplars pointing to Tempo.
+   - Tempo: `http://tempo:3200` with traces-to-logs using `service.name`.
+   - Loki: `http://loki:3100` with a derived field regex `(trace_id)=(\\w+)` -> Tempo.
+5. Scrape the API at `http://api:8000/metrics` from Prometheus. Traces flow via OTLP to Tempo. Logs are shipped via the Loki driver and already include OTEL trace/span IDs from `LoggingInstrumentor`.
 
 ## Project Structure
 
