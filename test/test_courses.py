@@ -13,9 +13,6 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
-# Enable DEBUG mode so API key checks are bypassed
-os.environ["DEBUG"] = "1"
-
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 SAMPLE_ROWS = [
@@ -86,6 +83,7 @@ def courses_db(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def client(courses_db):
+    prev_debug = os.environ.get("DEBUG")
     os.environ["DEBUG"] = "1"
     os.environ["COURSES_DATABASE_URL"] = f"sqlite:///{courses_db}"
 
@@ -98,6 +96,11 @@ def client(courses_db):
     from app.main import app
     with TestClient(app) as c:
         yield c
+    # Restore previous DEBUG value after tests
+    if prev_debug is None:
+        os.environ.pop("DEBUG", None)
+    else:
+        os.environ["DEBUG"] = prev_debug
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────────

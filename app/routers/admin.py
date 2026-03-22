@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from ..auth_db import get_auth_db
 from ..auth_models import APIKey
@@ -102,10 +103,12 @@ def deactivate_api_key(
     summary="Check for user authentication"
 )
 def authenticated(api_key_tuple: tuple = Depends(get_api_key)):
-    api_key, _, _ = api_key_tuple
-    if api_key:
-        return {"status": "authenticated"}
-    raise HTTPException(status_code=401, detail="Invalid API Key")
+    return {"status": "authenticated"}
+
+
+class SQLRequest(BaseModel):
+    sql: str
+    params: Optional[List[Any]] = None
 
 
 @router.post(
@@ -119,18 +122,17 @@ def authenticated(api_key_tuple: tuple = Depends(get_api_key)):
     responses=r_admin.POST_ADMIN_SQL,
 )
 def run_admin_sql(
-    sql: str,
-    params: Optional[List[Any]] = None,
+    payload: SQLRequest,
     api_key_tuple: tuple = Depends(get_api_key),
     conn: sqlite3.Connection = Depends(get_course_db),
 ):
     _ensure_admin(api_key_tuple)
 
-    if not sql.strip().lower().startswith(("select", "pragma")):
+    if not payload.sql.strip().lower().startswith(("select", "pragma")):
         raise HTTPException(status_code=400, detail="Only SELECT/PRAGMA statements are allowed")
 
     try:
-        cur = conn.execute(sql, params or [])
+        cur = conn.execute(payload.sql, payload.params or [])
         rows = [dict(r) for r in cur.fetchall()]
         return {"rows": rows, "count": len(rows)}
     except sqlite3.Error as exc:

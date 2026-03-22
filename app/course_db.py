@@ -37,7 +37,10 @@ def _bootstrap_db_if_needed() -> None:
     """
     COURSES_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not COURSES_DB_PATH.exists() and SEED_DB_PATH.exists():
-        COURSES_DB_PATH.write_bytes(SEED_DB_PATH.read_bytes())
+        try:
+            COURSES_DB_PATH.write_bytes(SEED_DB_PATH.read_bytes())
+        except OSError as exc:
+            raise RuntimeError(f"Failed to seed courses DB at {COURSES_DB_PATH}: {exc}") from exc
 
 
 def _connect() -> sqlite3.Connection:
