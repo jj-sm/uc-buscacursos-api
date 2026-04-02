@@ -16,7 +16,11 @@ from dotenv import load_dotenv
 from ..docs.responses import admin as r_admin
 
 load_dotenv()
-HIDE_ADMIN_ENDPOINTS = os.getenv("DEBUG", "0") == "1"
+DEBUG_MODE = os.getenv("DEBUG", "0") == "1"
+DEBUG_API_KEY = os.getenv("DEBUG_API_KEY")
+if DEBUG_API_KEY is None and DEBUG_MODE:
+    raise RuntimeError("DEBUG_API_KEY must be set when DEBUG mode is enabled")
+DEBUG_API_KEY_BLOCK_MESSAGE = "Debug API key cannot be used for admin operations"
 
 router = APIRouter()
 
@@ -30,7 +34,11 @@ add_welcome_endpoint(
 
 def _ensure_admin(api_key_tuple: tuple) -> None:
     """Raise 403 unless the requester has enterprise/admin tier."""
-    _, tier, _ = api_key_tuple
+    key, tier, _ = api_key_tuple
+    if key == DEBUG_API_KEY:
+        raise HTTPException(
+            status_code=403, detail=DEBUG_API_KEY_BLOCK_MESSAGE
+        )
     if tier not in ("enterprise", "admin"):
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
@@ -39,7 +47,7 @@ def _ensure_admin(api_key_tuple: tuple) -> None:
     "/keys",
     responses=r_admin.POST_ADMIN_KEYS, # pyright: ignore[reportArgumentType]
     summary="Create API key (for admin use only)",
-    include_in_schema=HIDE_ADMIN_ENDPOINTS,
+    include_in_schema=DEBUG_MODE,
 )
 def create_api_key(
     name: str,
@@ -60,7 +68,7 @@ def create_api_key(
     "/keys/list",
     responses=r_admin.GET_ADMIN_KEYS_LIST,  # type: ignore
     summary="List API keys (for admin use only)",
-    include_in_schema=HIDE_ADMIN_ENDPOINTS,
+    include_in_schema=DEBUG_MODE,
 )
 def list_api_keys(
     db: Session = Depends(get_auth_db), api_key_tuple: tuple = Depends(get_api_key)
@@ -74,7 +82,7 @@ def list_api_keys(
     "/keys/{key_name}",
     responses=r_admin.PATCH_ADMIN_KEYS_KEYNAME, # pyright: ignore[reportArgumentType]
     summary="Deactivate API key (for admin use only)",
-    include_in_schema=HIDE_ADMIN_ENDPOINTS
+    include_in_schema=DEBUG_MODE
 )
 def deactivate_api_key(
     key_name: str,

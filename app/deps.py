@@ -74,8 +74,14 @@ def get_api_key(api_key: Optional[str] = Security(api_key_header),
     
     # Check rate limit
     tier = key_obj.tier or "free"
+    # Treat legacy 'admin' tier as enterprise for limits/privileges
+    if tier == "admin":
+        tier = "enterprise"
+    tier_config = TIER_CONFIG.get(tier)
+    if tier_config is None:
+        raise HTTPException(status_code=403, detail="Invalid or inactive API Key")
+    # tier_config validation above ensures safe access for rate limiting
     if not _check_rate_limit(api_key, tier):
-        tier_config = TIER_CONFIG[tier]
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded. Tier: {tier_config['name']} "
@@ -84,7 +90,6 @@ def get_api_key(api_key: Optional[str] = Security(api_key_header),
     
     # Get remaining requests in this window
     tracker = _rate_limit_tracker[api_key]
-    tier_config = TIER_CONFIG[tier]
     remaining = (tier_config["requests_per_second"] - len(tracker["requests"])
                  if tier_config["requests_per_second"] else None)
     

@@ -2,12 +2,34 @@ import pytest
 from fastapi.testclient import TestClient
 import sys
 import os
+import secrets
+from contextlib import contextmanager
 from functools import partial
 
 # Add the app directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.main import app
+from app.routers.admin import DEBUG_API_KEY
+
+
+@contextmanager
+def _auth_db_session():
+    from app.auth_db import get_auth_db
+
+    db_gen = get_auth_db()
+    db = next(db_gen)
+    try:
+        yield db
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
+
+def _generate_test_api_key(prefix: str = "test-admin") -> str:
+    return f"{prefix}-{secrets.token_urlsafe(16)}"
 
 PREFIX = os.getenv("URL_PREFIX", "").rstrip("/")
 with_prefix = partial(lambda prefix, path: f"{prefix}{path}", PREFIX)
@@ -82,6 +104,40 @@ class TestAdminRouter:
         """Admin SQL endpoint should reject unauthenticated users"""
         response = client.post(with_prefix("/admin/courses/sql"), json={"sql": "select 1"})
         assert response.status_code in [403, 422]
+    
+    def test_admin_sql_endpoint_rejects_debug_key(self, client, monkeypatch):
+        """Debug bypass key should not grant admin SQL access"""
+        debug_key = "test-debug-key"
+        monkeypatch.setenv("DEBUG", "1")
+        monkeypatch.setenv("DEBUG_API_KEY", debug_key)
+        monkeypatch.setattr("app.routers.admin.DEBUG_API_KEY", debug_key)
+        response = client.post(
+            with_prefix("/admin/courses/sql"),
+            json={"sql": "select 1"},
+            headers={"X-API-Key": debug_key},
+        )
+        assert response.status_code == 403
+        assert "debug" in response.json().get("detail", "").lower()
+    
+    def test_admin_sql_endpoint_allows_valid_admin_key(self, client, monkeypatch):
+        """Valid non-debug admin keys should be allowed"""
+        non_debug_key = _generate_test_api_key()
+        from app.auth_models import APIKey
+        with _auth_db_session() as db:
+            api_key = APIKey(key=non_debug_key, name="test-admin", tier="enterprise")
+            db.add(api_key)
+            db.commit()
+        try:
+            response = client.post(
+                with_prefix("/admin/courses/sql"),
+                json={"sql": "select 1"},
+                headers={"X-API-Key": non_debug_key},
+            )
+            assert response.status_code == 200
+        finally:
+            with _auth_db_session() as db:
+                db.query(APIKey).filter_by(key=non_debug_key).delete()
+                db.commit()
 
 
 class TestDocumentation:
